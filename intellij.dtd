@@ -1,0 +1,107 @@
+<?xml version="1.0"?>
+<!DOCTYPE PubmedArticleSet [
+<!ELEMENT PubmedArticleSet (PubmedArticle)*>
+<!ELEMENT PubmedArticle (MedlineCitation|PubmedData)*>
+<!ELEMENT MedlineCitation (PMID|DateCreated|DateCompleted|DateRevised|Article|MedlineJournalInfo|OtherID|KeywordList|CitationSubset|MeshHeadingList|CommentsCorrectionsList|SupplMeshList|ChemicalList)*>
+<!ATTLIST MedlineCitation
+  Owner CDATA #REQUIRED
+  Status CDATA #REQUIRED
+>
+<!ELEMENT PMID (#PCDATA)>
+<!ATTLIST PMID Version CDATA #REQUIRED>
+<!ELEMENT DateCreated (Year|Month|Day)*>
+<!ELEMENT Year (#PCDATA)>
+<!ELEMENT Month (#PCDATA)>
+<!ELEMENT Day (#PCDATA)>
+<!ELEMENT DateCompleted (Year|Month|Day)*>
+<!ELEMENT DateRevised (Year|Month|Day)*>
+<!ELEMENT Article (Journal|ArticleTitle|Pagination|ELocationID|Abstract|AuthorList|Language|PublicationTypeList|ArticleDate|GrantList)*>
+<!ATTLIST Article PubModel CDATA #REQUIRED>
+<!ELEMENT Journal (ISSN|JournalIssue|Title|ISOAbbreviation)*>
+<!ELEMENT ISSN (#PCDATA)>
+<!ATTLIST ISSN IssnType CDATA #REQUIRED>
+<!ELEMENT JournalIssue (Volume|Issue|PubDate)*>
+<!ATTLIST JournalIssue CitedMedium CDATA #REQUIRED>
+<!ELEMENT Volume (#PCDATA)>
+<!ELEMENT Issue (#PCDATA)>
+<!ELEMENT PubDate (Year|Month|MedlineDate|Day)*>
+<!ELEMENT Title (#PCDATA)>
+<!ELEMENT ISOAbbreviation (#PCDATA)>
+<!ELEMENT ArticleTitle (#PCDATA)>
+<!ELEMENT Pagination (MedlinePgn)*>
+<!ELEMENT MedlinePgn (#PCDATA)>
+<!ELEMENT ELocationID (#PCDATA)>
+<!ATTLIST ELocationID
+  EIdType CDATA #REQUIRED
+  ValidYN CDATA #REQUIRED
+>
+<!ELEMENT Abstract (AbstractText|CopyrightInformation)*>
+<!ELEMENT AbstractText (#PCDATA)>
+<!ATTLIST AbstractText
+  Label CDATA #IMPLIED
+  NlmCategory CDATA #IMPLIED
+>
+<!ELEMENT AuthorList (Author)*>
+<!ATTLIST AuthorList CompleteYN CDATA #REQUIRED>
+<!ELEMENT Author (LastName|ForeName|Initials|Affiliation)*>
+<!ATTLIST Author ValidYN CDATA #REQUIRED>
+<!ELEMENT LastName (#PCDATA)>
+<!ELEMENT ForeName (#PCDATA)>
+<!ELEMENT Initials (#PCDATA)>
+<!ELEMENT Affiliation (#PCDATA)>
+<!ELEMENT Language (#PCDATA)>
+<!ELEMENT PublicationTypeList (PublicationType)*>
+<!ELEMENT PublicationType (#PCDATA)>
+<!ELEMENT ArticleDate (Year|Month|Day)*>
+<!ATTLIST ArticleDate DateType CDATA #REQUIRED>
+<!ELEMENT MedlineJournalInfo (Country|MedlineTA|NlmUniqueID|ISSNLinking)*>
+<!ELEMENT Country (#PCDATA)>
+<!ELEMENT MedlineTA (#PCDATA)>
+<!ELEMENT NlmUniqueID (#PCDATA)>
+<!ELEMENT ISSNLinking (#PCDATA)>
+<!ELEMENT OtherID (#PCDATA)>
+<!ATTLIST OtherID Source CDATA #REQUIRED>
+<!ELEMENT KeywordList (Keyword)*>
+<!ATTLIST KeywordList Owner CDATA #REQUIRED>
+<!ELEMENT Keyword (#PCDATA)>
+<!ATTLIST Keyword MajorTopicYN CDATA #REQUIRED>
+<!ELEMENT PubmedData (History|PublicationStatus|ArticleIdList)*>
+<!ELEMENT History (PubMedPubDate)*>
+<!ELEMENT PubMedPubDate (Year|Month|Day|Hour|Minute)*>
+<!ATTLIST PubMedPubDate PubStatus CDATA #REQUIRED>
+<!ELEMENT Hour (#PCDATA)>
+<!ELEMENT Minute (#PCDATA)>
+<!ELEMENT PublicationStatus (#PCDATA)>
+<!ELEMENT ArticleIdList (ArticleId)*>
+<!ELEMENT ArticleId (#PCDATA)>
+<!ATTLIST ArticleId IdType CDATA #REQUIRED>
+<!ELEMENT MedlineDate (#PCDATA)>
+<!ELEMENT CopyrightInformation (#PCDATA)>
+<!ELEMENT GrantList (Grant)*>
+<!ATTLIST GrantList CompleteYN CDATA #REQUIRED>
+<!ELEMENT Grant (GrantID|Acronym|Agency|Country)*>
+<!ELEMENT GrantID (#PCDATA)>
+<!ELEMENT Acronym (#PCDATA)>
+<!ELEMENT Agency (#PCDATA)>
+<!ELEMENT CitationSubset (#PCDATA)>
+<!ELEMENT MeshHeadingList (MeshHeading)*>
+<!ELEMENT MeshHeading (DescriptorName|QualifierName)*>
+<!ELEMENT DescriptorName (#PCDATA)>
+<!ATTLIST DescriptorName
+  MajorTopicYN CDATA #REQUIRED
+  Type CDATA #IMPLIED
+>
+<!ELEMENT QualifierName (#PCDATA)>
+<!ATTLIST QualifierName MajorTopicYN CDATA #REQUIRED>
+<!ELEMENT CommentsCorrectionsList (CommentsCorrections)*>
+<!ELEMENT CommentsCorrections (RefSource|PMID)*>
+<!ATTLIST CommentsCorrections RefType CDATA #REQUIRED>
+<!ELEMENT RefSource (#PCDATA)>
+<!ELEMENT SupplMeshList (SupplMeshName)*>
+<!ELEMENT SupplMeshName (#PCDATA)>
+<!ATTLIST SupplMeshName Type CDATA #REQUIRED>
+<!ELEMENT ChemicalList (Chemical)*>
+<!ELEMENT Chemical (RegistryNumber|NameOfSubstance)*>
+<!ELEMENT RegistryNumber (#PCDATA)>
+<!ELEMENT NameOfSubstance (#PCDATA)>
+]>
