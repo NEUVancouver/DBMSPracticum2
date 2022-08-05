@@ -260,8 +260,8 @@ parseHistory <- function(pmid, history)
 {
   rows.df <-data.frame(HistoryId = integer(),
                        PMID = character(), 
-                       PubDate = character(),
                        PubStatus = character(),
+                       PubDate = character(),
                        stringsAsFactors = F)
 
   for (i in 1: xmlSize(history))
@@ -271,8 +271,9 @@ parseHistory <- function(pmid, history)
     mm = xpathSApply(dataNode, "Month", xmlValue)
     dd = xpathSApply(dataNode, "Day", xmlValue)
     rows.df[i,2] <- pmid
-    rows.df[i,3] <- paste(yy, mm, dd, sep="-")
-    rows.df[i,4] <- xmlAttrs(dataNode, 2)
+    rows.df[i,3] <- xmlAttrs(dataNode, 2)
+    rows.df[i,4] <- paste(yy, mm, dd, sep="-")
+
   }
 
   return(rows.df)
@@ -324,7 +325,7 @@ parseJournal <- function(journals)
                          Issue = integer(),
                          PubDate = character(),
                          stringsAsFactors = F)
-  
+
   for (i in 1: xmlSize(journals))
   {
     dataNode <- journals[[i]]
@@ -362,7 +363,7 @@ for (i in 1 : size){
   # Process History
   history = xpathApply(node[[2]], "History/PubMedPubDate")
   historyRows <- parseHistory(pmid, history)
-  for(j in 1 : length(historyRows)) {
+  for(j in 1 : nrow(historyRows)) {
     row <- historyRows[j,]
     History.df[nrow(History.df) + 1,] = row
   }
@@ -370,7 +371,7 @@ for (i in 1 : size){
   # Process Author
   authors = xpathApply(node[[1]], "Article/AuthorList/Author")
   authorRows <- parseAuthor(authors)
-  for(j in 1 : length(authorRows)) {
+  for(j in 1 : nrow(authorRows)) {
     row <- authorRows[j,]
     Author.df[nrow(Author.df) + 1,] = row
   }
@@ -378,15 +379,15 @@ for (i in 1 : size){
   # Process Journal
   journals = xpathApply(node[[1]], "Article/Journal")
   journalRows <- parseJournal(journals)
-  for(j in 1 : length(journalRows)) {
+  for(j in 1 : nrow(journalRows)) {
     row <- journalRows[j,]
     Journal.df[nrow(Journal.df) + 1,] = row
   }
 }
 head(History.df)
 head(Author.df)
+History.df
 Journal.df
-
 Author.df
 ```
 
