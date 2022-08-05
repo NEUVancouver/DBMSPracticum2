@@ -1,20 +1,59 @@
 ---
-title: "R Notebook"
+title: "CS5200 DBMS - Practicum 2 - Team Infinity"
 output: html_notebook
+Team : Kong Koon Kit, Zhiwei Bao, Luo Cheng Zhu
 ---
 
 ```{r}
 library(XML)
 library(RSQLite)
 
-fpath = "~/Desktop/NEU/CS5200 Database/Practicum/Practicum2/"
-dbfile = "Practicum2.sqlite"
+fpath <- "./"
+dbfile <- "Practicum2.sqlite"
+xmlfile <- "pubmed_sample.xml"
 
 # if database file already exists, we connect to it, otherwise
 # we create a new database
 dbcon <- dbConnect(RSQLite::SQLite(), paste0(fpath,dbfile))
 dbExecute(dbcon, "PRAGMA foreign_keys = ON")
 dbListTables(dbcon)
+```
+
+```{sql connection = "dbcon"}
+drop table if exists AbstractText;
+```
+```{sql connection = "dbcon"}
+drop table if exists Abstract;
+```
+```{sql connection = "dbcon"}
+drop table if exists Article;
+```
+```{sql connection = "dbcon"}
+drop table if exists ArticleAuthorMapping;
+```
+```{sql connection = "dbcon"}
+drop table if exists Author;
+```
+```{sql connection = "dbcon"}
+drop table if exists Elocation;
+```
+```{sql connection = "dbcon"}
+drop table if exists GrantList;
+```
+```{sql connection = "dbcon"}
+drop table if exists History;
+```
+```{sql connection = "dbcon"}
+drop table if exists Journal;
+```
+```{sql connection = "dbcon"}
+drop table if exists JournalIssue;
+```
+```{sql connection = "dbcon"}
+drop table if exists PublicationType;
+```
+```{sql connection = "dbcon"}
+drop table if exists PublicationTypeList;
 ```
 
 
@@ -39,12 +78,26 @@ CREATE TABLE `AbstractText` (
 
 
 ```{sql connection = "dbcon"}
+--CREATE TABLE `Journal` (
+--  `ISSN`            Text PRIMARY KEY,
+--  `ISSNType`        Text NOT NULL,
+--  `Title`           Text NOT NULL,
+--  `ISOAbbreviation` Text NOT NULL
+-- );
+
+
 CREATE TABLE `Journal` (
   `ISSN`            Text PRIMARY KEY,
   `ISSNType`        Text NOT NULL,
   `Title`           Text NOT NULL,
-  `ISOAbbreviation` Text NOT NULL
+  `ISOAbbreviation` Text NOT NULL,
+  `CitedMedium`     Text NOT NULL,
+  `Volume`          Integer NOT NULL,
+  `Issue`           Integer NOT NULL,
+  `PubDate`         Date NOT NULL
 );
+
+
 ```
 
 ```{sql connection = "dbcon"}
@@ -88,7 +141,7 @@ CREATE TABLE `Elocation` (
 
 ```{sql connection = "dbcon"}
 CREATE TABLE `History` (
-  `HistoryID` Integer PRIMARY KEY AUTOINCREMENT,
+  `HistoryID` Integer NOT NULL PRIMARY KEY AUTOINCREMENT,
   `PMID`      Text NOT NULL,
   `PubStatus` Text NOT NULL,
   `PubDate`   Date NOT NULL,
@@ -130,8 +183,7 @@ CREATE TABLE `Author` (
   `ForeName`         Text NOT NULL,
   `Initials`         Text NOT NULL,
   `Affiliation`      Text NOT NULL,
-  `ValidFlag`        Boolean NOT NULL,
-  `CompleteFlag`     Boolean NOT NULL
+  `ValidFlag`        Boolean NOT NULL
 );
 
 ```
@@ -164,43 +216,198 @@ CREATE TABLE `ArticleAuthorMapping` (
 ```{sql connection = "dbcon"}
 ```
 
-```{sql connection = "dbcon"}
-drop table if exists AbstractText;
-```
-```{sql connection = "dbcon"}
-drop table if exists Abstract;
-```
-```{sql connection = "dbcon"}
-drop table if exists Article;
-```
-```{sql connection = "dbcon"}
-drop table if exists ArticleAuthorMapping;
-```
-```{sql connection = "dbcon"}
-drop table if exists Author;
-```
-```{sql connection = "dbcon"}
-drop table if exists Elocation;
-```
-```{sql connection = "dbcon"}
-drop table if exists GrantList;
-```
-```{sql connection = "dbcon"}
-drop table if exists History;
-```
-```{sql connection = "dbcon"}
-drop table if exists Journal;
-```
-```{sql connection = "dbcon"}
-drop table if exists JournalIssue;
-```
-```{sql connection = "dbcon"}
-drop table if exists PublicationType;
-```
-```{sql connection = "dbcon"}
-drop table if exists PublicationTypeList;
+
+# Process XML File
+```{r }
+fpn = paste0(fpath, xmlfile)
+xmlDOM <- xmlParse(file = fpn)
+xmlRoot <- xmlRoot(xmlDOM)
+#head(xmlRoot)
 ```
 
-```{r }
-fn <- "pubmed_sample.xml"
+
+# Define Data Frame
+```{r}
+History.df <- data.frame (HistoryID = integer(),
+                          PMID = integer(),
+                          PubStatus = character(),
+                          PubDate = character(),
+                          stringsAsFactors = F)
+
+Author.df <- data.frame(AuthorID = integer(),
+                        LastName = character(), 
+                        ForeName = character(),
+                        Initialis = character(),
+                        Affiliation = character(),
+                        ValidFlag = character(),
+                        stringsAsFactors = F)
+
+
+Journal.df <- data.frame (ISSN = character(),
+                          IssueType = character(),
+                          Title = character(),
+                          ISOAbbreviation = character(),
+                          CitedMedium = character(),
+                          Volume = integer(),
+                          Issue = integer(),
+                          PubDate = character(),
+                          stringsAsFactors = F)
+```
+
+# Defind Parser
+```{r}
+parseHistory <- function(pmid, history) 
+{
+  rows.df <-data.frame(HistoryId = integer(),
+                       PMID = character(), 
+                       PubDate = character(),
+                       PubStatus = character(),
+                       stringsAsFactors = F)
+
+  for (i in 1: xmlSize(history))
+  {
+    dataNode <- history[[i]]
+    yy = xpathSApply(dataNode, "Year", xmlValue)
+    mm = xpathSApply(dataNode, "Month", xmlValue)
+    dd = xpathSApply(dataNode, "Day", xmlValue)
+    rows.df[i,2] <- pmid
+    rows.df[i,3] <- paste(yy, mm, dd, sep="-")
+    rows.df[i,4] <- xmlAttrs(dataNode, 2)
+  }
+
+  return(rows.df)
+}
+```
+
+```{r}
+parseAuthor <- function(authors) 
+{
+  rows.df <-data.frame(AuthorID = integer(),
+                       LastName = character(), 
+                       ForeName = character(),
+                       Initialis = character(),
+                       Affiliation = character(),
+                       ValidFlag = character(),
+                       stringsAsFactors = F)
+
+  for (i in 1: xmlSize(authors))
+  {
+    dataNode <- authors[[i]]
+    lastName <- xpathSApply(dataNode, "LastName", xmlValue)
+    foreName <- xpathSApply(dataNode, "ForeName", xmlValue)
+    initials <- xpathSApply(dataNode, "Initials", xmlValue)
+    affiliation <- xpathSApply(dataNode, "Affiliation", xmlValue)
+    validFlag <- xmlAttrs(dataNode)
+    
+    if (length(affiliation) == 0 ) affiliation <- ''
+    
+    rows.df[i,2] <- lastName
+    rows.df[i,3] <- foreName
+    rows.df[i,4] <- initials
+    rows.df[i,5] <- affiliation
+    rows.df[i,6] <- validFlag
+  }
+
+  return(rows.df)
+}
+```
+
+```{r}
+parseJournal <- function(journals) 
+{
+  rows.df <- data.frame (ISSN = character(),
+                         IssueType = character(),
+                         Title = character(),
+                         ISOAbbreviation = character(),
+                         CiteMedium = character(),
+                         Volume = integer(),
+                         Issue = integer(),
+                         PubDate = character(),
+                         stringsAsFactors = F)
+  
+  for (i in 1: xmlSize(journals))
+  {
+    dataNode <- journals[[i]]
+    issn <- xpathSApply(dataNode, "ISSN", xmlValue)
+    issueType <- xpathSApply(dataNode, "ISSN", xmlAttrs)
+    title <- xpathSApply(dataNode, "Title", xmlValue)
+    isoAbbreviation <- xpathSApply(dataNode, "ISOAbbreviation", xmlValue)
+    citedMedium <- xpathSApply(dataNode, "JournalIssue", xmlAttrs)
+    volume <- xpathSApply(dataNode, "JournalIssue/Volume", xmlValue)
+    issue <- xpathSApply(dataNode, "JournalIssue/Issue", xmlValue)
+    pubDate <- xpathSApply(dataNode, "JournalIssue/PubDate", xmlValue)
+    #  validFlag <- xmlAttrs(dataNode)
+
+    rows.df[i,1] <- issn
+    rows.df[i,2] <- issueType
+    rows.df[i,3] <- title
+    rows.df[i,4] <- isoAbbreviation
+    rows.df[i,5] <- citedMedium
+    rows.df[i,6] <- volume
+    rows.df[i,7] <- issue
+    rows.df[i,8] <- pubDate
+  }
+
+  return(rows.df)
+}
+```
+
+```{r}
+
+size <- xmlSize(xmlRoot)
+for (i in 1 : size){
+  node = xmlRoot[[i]]
+  pmid = xmlValue(xpathSApply(node[[1]], "PMID"))
+
+  # Process History
+  history = xpathApply(node[[2]], "History/PubMedPubDate")
+  historyRows <- parseHistory(pmid, history)
+  for(j in 1 : length(historyRows)) {
+    row <- historyRows[j,]
+    History.df[nrow(History.df) + 1,] = row
+  }
+  
+  # Process Author
+  authors = xpathApply(node[[1]], "Article/AuthorList/Author")
+  authorRows <- parseAuthor(authors)
+  for(j in 1 : length(authorRows)) {
+    row <- authorRows[j,]
+    Author.df[nrow(Author.df) + 1,] = row
+  }
+
+  # Process Journal
+  journals = xpathApply(node[[1]], "Article/Journal")
+  journalRows <- parseJournal(journals)
+  for(j in 1 : length(journalRows)) {
+    row <- journalRows[j,]
+    Journal.df[nrow(Journal.df) + 1,] = row
+  }
+}
+head(History.df)
+head(Author.df)
+Journal.df
+
+Author.df
+```
+
+# Write Result into database
+```{r}
+#dbWriteTable(dbcon, "AbstractText", AbstractText.df, overwrite = T)
+#dbWriteTable(dbcon, "Abstract", Abstract.df, overwrite = T)
+#dbWriteTable(dbcon, "Article", Article.df, overwrite = T)
+#dbWriteTable(dbcon, "ArticleAuthorMapping", ArticleAuthorMapping.df, overwrite = T)
+dbWriteTable(dbcon, "Author", Author.df, overwrite = T)
+#dbWriteTable(dbcon, "Elocation", Elocation.df, overwrite = T)
+#dbWriteTable(dbcon, "GrantList", GrantList.df, overwrite = T)
+dbWriteTable(dbcon, "History", History.df, overwrite = T)
+dbWriteTable(dbcon, "Journal", Journal.df, overwrite = T)
+#dbWriteTable(dbcon, "PublicationType", PublicationType.df, overwrite = T)
+#dbWriteTable(dbcon, "PublicationTypeList", PublicationTypeList.df, overwrite = T)
+```
+
+
+```{sql connection = "dbcon"}
+select rowid, a.* from history a
+--select distinct LastName, ForeName, Initialis, Affiliation from Author
+
 ```
