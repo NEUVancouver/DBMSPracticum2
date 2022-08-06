@@ -425,12 +425,9 @@ for (i in 1 : size){
   }
 }
 
-head(History.df)
-head(Author.df)
-head(Article.df)
-head(ArticleAuthorMapping.df)
-head(Journal.df)
-head(JournalIssue.df)
+```
+
+```{r}
 History.df
 Author.df
 ArticleAuthorMapping.df
@@ -450,14 +447,27 @@ dbWriteTable(dbcon, "Journal", Journal.df, overwrite = T)
 dbWriteTable(dbcon, "JournalIssue", JournalIssue.df, overwrite = T)
 ```
 
+# Finally View the record via SQL
 ```{sql connection = "dbcon"}
---select rowid, a.* from Article a
---select rowid, a.* from ArticleAuthorMapping a
---select rowid, a.* from Author a
---select rowid, a.* from History a
---select rowid, a.* from Journal a
---select rowid, a.* from JournalIssue a
---select distinct LastName, ForeName, Initialis, Affiliation from Author
-
+select rowid, a.* from Article a
 ```
---
+
+```{sql connection = "dbcon"}
+select rowid, a.* from ArticleAuthorMapping a
+```
+
+```{sql connection = "dbcon"}
+select rowid, a.* from Author a
+```
+
+```{sql connection = "dbcon"}
+select rowid, a.* from History a
+```
+
+```{sql connection = "dbcon"}
+select rowid, a.* from Journal a
+```
+
+```{sql connection = "dbcon"}
+select rowid, a.* from JournalIssue a
+```
