@@ -48,7 +48,7 @@ drop table if exists JournalIssue;
 # Define Table Layout
 ```{sql connection ="dbcon"}
 CREATE TABLE `Journal` (
-  `ISSN`            Text PRIMARY KEY,
+  `ISSN`            Text NOT NULL PRIMARY KEY,
   `ISSNType`        Text NOT NULL,
   `Title`           Text NOT NULL,
   `ISOAbbreviation` Text NOT NULL
@@ -59,7 +59,7 @@ CREATE TABLE `Journal` (
 
 ```{sql connection = "dbcon"}
 CREATE TABLE `JournalIssue` (
-  `JournalIssueID` Integer PRIMARY KEY AUTOINCREMENT,
+  `JournalIssueID` Integer NOT NULL PRIMARY KEY AUTOINCREMENT,
   `ISSN`           Text NOT NULL,
   `CitedMedium`    Text NOT NULL,
   `Volume`         Text NOT NULL,
@@ -71,7 +71,7 @@ CREATE TABLE `JournalIssue` (
 
 ```{sql connection ="dbcon"}
 CREATE TABLE `Article` (
-  `PMID`         Text PRIMARY KEY,
+  `PMID`         Text NOT NULL PRIMARY KEY,
   `ISSN`         Text NOT NULL,
   `ArticleTitle` Text NOT NULL,
   `Pagination`   Text NOT NULL,
@@ -95,7 +95,7 @@ CREATE TABLE `History` (
 
 ```{sql connection = "dbcon"}
 CREATE TABLE `Author` (
-  `AuthorId`         Integer PRIMARY KEY AUTOINCREMENT,
+  `AuthorId`         Text NOT NULL PRIMARY KEY,
   `LastName`         Text NOT NULL,
   `ForeName`         Text NOT NULL,
   `Initials`         Text NOT NULL,
@@ -107,38 +107,12 @@ CREATE TABLE `Author` (
 ```{sql connection = "dbcon"}
 CREATE TABLE `ArticleAuthorMapping` (
   `PMID`     Text NOT NULL,
-  `AuthorId` Integer NOT NULL,
+  `AuthorId` Text NOT NULL,
   CONSTRAINT PublicationTypeList_FK0   FOREIGN KEY (PMID)          REFERENCES Article (PMID)      ON DELETE CASCADE,
   CONSTRAINT PArticleAuthorMapping_FK1 FOREIGN KEY (AuthorId)      REFERENCES Author (AuthorId)   ON DELETE CASCADE
 );
 ```
 
-```{sql connection = "dbcon"}
-```
-
-```{sql connection = "dbcon"}
-```
-
-```{sql connection = "dbcon"}
-```
-
-```{sql connection = "dbcon"}
-```
-
-```{sql connection = "dbcon"}
-```
-
-```{sql connection = "dbcon"}
-```
-
-```{sql connection = "dbcon"}
-```
-
-```{sql connection = "dbcon"}
-```
-
-```{sql connection = "dbcon"}
-```
 
 # Process XML File
 
@@ -158,13 +132,16 @@ History.df <- data.frame (HistoryID = integer(),
                           PubDate = character(),
                           stringsAsFactors = F)
 
-Author.df <- data.frame(AuthorID = integer(),
+Author.df <- data.frame(AuthorID = character(),
                         LastName = character(), 
                         ForeName = character(),
                         Initialis = character(),
                         Affiliation = character(),
                         stringsAsFactors = F)
 
+ArticleAuthorMapping.df <- data.frame(PMID = integer(), 
+                                      AuthorID = character(),
+                                      stringsAsFactors =)
 
 Journal.df <- data.frame (ISSN = character(),
                           IssueType = character(),
@@ -194,12 +171,15 @@ Article.df <- data.frame (PMID = integer(),
 ```{r}
 parseHistory <- function(pmid, history) 
 {
-  rows.df <-data.frame(HistoryId = integer(),
+  rows.df <-data.frame(HistoryID = integer(),
                        PMID = character(), 
                        PubStatus = character(),
                        PubDate = character(),
                        stringsAsFactors = F)
 
+  # Use History DF record count as Auto Increment
+  historyIdx <- nrow(History.df) + 10000000
+  
   for (i in 1: xmlSize(history))
   {
     dataNode <- history[[i]]
@@ -210,9 +190,14 @@ parseHistory <- function(pmid, history)
     # Derived Field
     pubDate <- paste(yy, mm, dd, sep="-")
     
+    # Create the "ID"
+    historyIdx <- historyIdx + 1
+
+    rows.df[i,1] <- historyIdx
     rows.df[i,2] <- pmid
     rows.df[i,3] <- xmlAttrs(dataNode, 2)
     rows.df[i,4] <- pubDate 
+    
   }
 
   return(rows.df)
@@ -222,13 +207,16 @@ parseHistory <- function(pmid, history)
 ```{r}
 parseAuthor <- function(authors) 
 {
-  rows.df <-data.frame(AuthorID = integer(),
+  rows.df <-data.frame(AuthorID = character(),
                        LastName = character(), 
                        ForeName = character(),
                        Initialis = character(),
                        Affiliation = character(),
                        stringsAsFactors = F)
-
+  
+  # Use actual row index since we skip some record if duplicated
+  rowIdx = 1
+  
   for (i in 1: xmlSize(authors))
   {
     dataNode <- authors[[i]]
@@ -237,12 +225,43 @@ parseAuthor <- function(authors)
     initials <- xpathSApply(dataNode, "Initials", xmlValue)
     affiliation <- xpathSApply(dataNode, "Affiliation", xmlValue)
     
+    authorID <- paste(lastName, initials, foreName, sep="-")
+    
     if (length(affiliation) == 0 ) affiliation <- ''
     
-    rows.df[i,2] <- lastName
-    rows.df[i,3] <- foreName
-    rows.df[i,4] <- initials
-    rows.df[i,5] <- affiliation
+    # If Author ID already exist in the record, skip insert
+    if(!any(Author.df$AuthorID == authorID)) {
+      rows.df[rowIdx,1] <- authorID
+      rows.df[rowIdx,2] <- lastName
+      rows.df[rowIdx,3] <- foreName
+      rows.df[rowIdx,4] <- initials
+      rows.df[rowIdx,5] <- affiliation
+      rowIdx <- rowIdx + 1 
+    }
+  }
+
+  return(rows.df)
+}
+```
+
+```{r}
+parseArticleAuthorMapping <- function(pmid, authors) 
+{
+  rows.df <-data.frame( PMID = integer(),
+                        AuthorID = character(),
+                        stringsAsFactors = F)
+
+  for (i in 1: xmlSize(authors))
+  {
+    dataNode <- authors[[i]]
+    lastName <- xpathSApply(dataNode, "LastName", xmlValue)
+    foreName <- xpathSApply(dataNode, "ForeName", xmlValue)
+    initials <- xpathSApply(dataNode, "Initials", xmlValue)
+
+    authorID <- paste(lastName, initials, foreName, sep="-")
+    
+    rows.df[i,1] <- authorID
+    rows.df[i,2] <- pmid
   }
 
   return(rows.df)
@@ -287,6 +306,9 @@ parseJournalIssue <- function(journals)
                          PubDate = character(),
                          stringsAsFactors = F)
 
+  # Use Journal Issue DF record count as Auto Increment
+  journalIdx <- nrow(JournalIssue.df) + 10000000
+
   for (i in 1: xmlSize(journals))
   {
     dataNode <- journals[[i]]
@@ -296,6 +318,8 @@ parseJournalIssue <- function(journals)
     issue <- xpathSApply(dataNode, "JournalIssue/Issue", xmlValue)
     pubDate <- xpathSApply(dataNode, "JournalIssue/PubDate", xmlValue)
 
+    journalIdx <- journalIdx + 1
+    rows.df[i,1] <- journalIdx
     rows.df[i,2] <- issn
     rows.df[i,3] <- citedMedium
     rows.df[i,4] <- volume
@@ -311,12 +335,12 @@ parseJournalIssue <- function(journals)
 parseArticle <- function(pmid, article) 
 {
   rows.df <- data.frame (PMID = integer(),
-                          ISSN = character(),
-                          ArticleTitle = character(),
-                          Pagination = character(),
-                          Language = character(),
-                          ArticleDate = character(),
-                          stringsAsFactors = F)
+                         ISSN = character(),
+                         ArticleTitle = character(),
+                         Pagination = character(),
+                         Language = character(),
+                         ArticleDate = character(),
+                         stringsAsFactors = F)
   
   for (i in 1: xmlSize(article))
     {
@@ -345,28 +369,12 @@ parseArticle <- function(pmid, article)
 }
 ```
 
+# Main Parsing
 ```{r}
-
 size <- xmlSize(xmlRoot)
 for (i in 1 : size){
   node = xmlRoot[[i]]
   pmid = xmlValue(xpathSApply(node[[1]], "PMID"))
-
-  # Process History
-  history = xpathApply(node[[2]], "History/PubMedPubDate")
-  historyRows <- parseHistory(pmid, history)
-  for(j in 1 : nrow(historyRows)) {
-    row <- historyRows[j,]
-    History.df[nrow(History.df) + 1,] = row
-  }
-  
-  # Process Author
-  authors = xpathApply(node[[1]], "Article/AuthorList/Author")
-  authorRows <- parseAuthor(authors)
-  for(j in 1 : nrow(authorRows)) {
-    row <- authorRows[j,]
-    Author.df[nrow(Author.df) + 1,] = row
-  }
 
   # Process Journal
   journals = xpathApply(node[[1]], "Article/Journal")
@@ -376,12 +384,36 @@ for (i in 1 : size){
     Journal.df[nrow(Journal.df) + 1,] = row
   }
   
-  
   # Process Journal Issue
   journalIssueRows <- parseJournalIssue(journals)
   for(j in 1 : nrow(journalIssueRows)) {
     row <- journalIssueRows[j,]
     JournalIssue.df[nrow(JournalIssue.df) + 1,] = row
+  }
+  
+  # Process History
+  history = xpathApply(node[[2]], "History/PubMedPubDate")
+  historyRows <- parseHistory(pmid, history)
+  for(j in 1 : nrow(historyRows)) {
+    row <- historyRows[j,]
+    History.df[nrow(History.df) + 1,] = row
+  }
+  
+  # Process Author (Record will be skipped if it was added previously)
+  authors = xpathApply(node[[1]], "Article/AuthorList/Author")
+  authorRows <- parseAuthor(authors)
+  if (nrow(authorRows) > 0){
+    for(j in 1 : nrow(authorRows)) {
+      row <- authorRows[j,]
+      Author.df[nrow(Author.df) + 1,] = row
+    }
+  }
+  
+  # Process Article Author Mapping
+  articleAuthorMappingRows <- parseArticleAuthorMapping(pmid, authors)
+  for(j in 1 : nrow(articleAuthorMappingRows)) {
+    row <- articleAuthorMappingRows[j,]
+    ArticleAuthorMapping.df[nrow(ArticleAuthorMapping.df) + 1,] = row
   }
   
   # Process Article
@@ -396,10 +428,12 @@ for (i in 1 : size){
 head(History.df)
 head(Author.df)
 head(Article.df)
+head(ArticleAuthorMapping.df)
 head(Journal.df)
 head(JournalIssue.df)
 History.df
 Author.df
+ArticleAuthorMapping.df
 Article.df
 Journal.df
 JournalIssue.df
@@ -409,7 +443,7 @@ JournalIssue.df
 
 ```{r}
 dbWriteTable(dbcon, "Article", Article.df, overwrite = T)
-#dbWriteTable(dbcon, "ArticleAuthorMapping", ArticleAuthorMapping.df, overwrite = T)
+dbWriteTable(dbcon, "ArticleAuthorMapping", ArticleAuthorMapping.df, overwrite = T)
 dbWriteTable(dbcon, "Author", Author.df, overwrite = T)
 dbWriteTable(dbcon, "History", History.df, overwrite = T)
 dbWriteTable(dbcon, "Journal", Journal.df, overwrite = T)
@@ -417,7 +451,7 @@ dbWriteTable(dbcon, "JournalIssue", JournalIssue.df, overwrite = T)
 ```
 
 ```{sql connection = "dbcon"}
-select rowid, a.* from Article a
+--select rowid, a.* from Article a
 --select rowid, a.* from ArticleAuthorMapping a
 --select rowid, a.* from Author a
 --select rowid, a.* from History a
@@ -426,3 +460,4 @@ select rowid, a.* from Article a
 --select distinct LastName, ForeName, Initialis, Affiliation from Author
 
 ```
+--
