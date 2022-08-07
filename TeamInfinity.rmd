@@ -8,7 +8,7 @@ Team : Kong Koon Kit, Zhiwei Bao, Luo Cheng Zhu
 library(XML)
 library(RSQLite)
 
-fpath <- "./"
+fpath <- "E:/NEU/Courses/CS5200/Practicum/Practicum 2/"
 dbfile <- "Practicum2.sqlite"
 xmlfile <- "pubmed_sample.xml"
 
@@ -53,8 +53,6 @@ CREATE TABLE `Journal` (
   `Title`           Text NOT NULL,
   `ISOAbbreviation` Text NOT NULL
 );
-
-
 ```
 
 ```{sql connection = "dbcon"}
@@ -76,7 +74,7 @@ CREATE TABLE `Article` (
   `ArticleTitle` Text NOT NULL,
   `Pagination`   Text NOT NULL,
   `AbstractID`   Integer NOT NULL,
-  `Language`     Integer NOT NULL,
+  `Language`     Text NOT NULL,
   `ArticleDate`  Date NOT NULL,
   CONSTRAINT Article_FK0 FOREIGN KEY (AbstractID)         REFERENCES Abstract (AbstractID)      ON DELETE CASCADE,
   CONSTRAINT Article_FK1 FOREIGN KEY (ISSN)               REFERENCES Journal (ISSN)             ON DELETE CASCADE
@@ -135,7 +133,7 @@ History.df <- data.frame (HistoryID = integer(),
 Author.df <- data.frame(AuthorID = character(),
                         LastName = character(), 
                         ForeName = character(),
-                        Initialis = character(),
+                        Initials = character(),
                         Affiliation = character(),
                         stringsAsFactors = F)
 
@@ -144,7 +142,7 @@ ArticleAuthorMapping.df <- data.frame(PMID = integer(),
                                       stringsAsFactors =)
 
 Journal.df <- data.frame (ISSN = character(),
-                          IssueType = character(),
+                          IssnType = character(),
                           Title = character(),
                           ISOAbbreviation = character(),
                           stringsAsFactors = F)
@@ -210,7 +208,7 @@ parseAuthor <- function(authors)
   rows.df <-data.frame(AuthorID = character(),
                        LastName = character(), 
                        ForeName = character(),
-                       Initialis = character(),
+                       Initials = character(),
                        Affiliation = character(),
                        stringsAsFactors = F)
   
@@ -272,7 +270,7 @@ parseArticleAuthorMapping <- function(pmid, authors)
 parseJournal <- function(journals) 
 {
   rows.df <- data.frame (ISSN = character(),
-                         IssueType = character(),
+                         IssnType = character(),
                          Title = character(),
                          ISOAbbreviation = character(),
                          stringsAsFactors = F)
@@ -281,12 +279,12 @@ parseJournal <- function(journals)
   {
     dataNode <- journals[[i]]
     issn <- xpathSApply(dataNode, "ISSN", xmlValue)
-    issueType <- xpathSApply(dataNode, "ISSN", xmlAttrs)
+    issnType <- xpathSApply(dataNode, "ISSN", xmlAttrs)
     title <- xpathSApply(dataNode, "Title", xmlValue)
     isoAbbreviation <- xpathSApply(dataNode, "ISOAbbreviation", xmlValue)
 
     rows.df[i,1] <- issn
-    rows.df[i,2] <- issueType
+    rows.df[i,2] <- issnType
     rows.df[i,3] <- title
     rows.df[i,4] <- isoAbbreviation
   }
@@ -470,4 +468,90 @@ select rowid, a.* from Journal a
 
 ```{sql connection = "dbcon"}
 select rowid, a.* from JournalIssue a
+```
+
+# Part 2
+## Step 1
+### Clean up
+```{sql connection = "dbcon"}
+drop table if exists ArticleFact;
+```
+
+```{sql connection = "dbcon"}
+drop table if exists JournalDim;
+```
+
+```{sql connection = "dbcon"}
+drop table if exists AuthorDim;
+```
+
+```{sql connection = "dbcon"}
+drop table if exists HistoryDim;
+```
+
+
+### Create and load the dimension tables
+```{sql connection ="dbcon"}
+CREATE TABLE JournalDim 
+  AS SELECT ISSN, IssnType, Title, ISOAbbreviation FROM Journal;
+```
+
+```{sql connection ="dbcon"}
+CREATE TABLE AuthorDim 
+  AS SELECT AuthorId, LastName, ForeName, Initials, Affiliation FROM Author;
+```
+
+```{sql connection ="dbcon"}
+CREATE TABLE HistoryDim 
+  AS SELECT HistoryID, PubStatus, PubDate FROM History;
+```
+
+### Create the fact table
+```{sql connection ="dbcon"}
+CREATE TABLE ArticleFact (
+PMID           Text NOT NULL,
+ISSN           Text NOT NULL,
+AuthorId       Text NOT NULL,
+HistoryID      Integer NOT NULL,
+ArticleTitle   Text NOT NULL,
+Pagination     Text NOT NULL,
+Language       Text NOT NULL,
+ArticleDate    Date NOT NULL,
+CitedMedium    Text NOT NULL,
+JournalVolume  Text NOT NULL,
+JournalIssue   Text NOT NULL,
+JournalPubDate Date NOT NULL,
+PRIMARY KEY (PMID, ISSN, AuthorId, HistoryID),
+CONSTRAINT Article_Journal_FK FOREIGN KEY (ISSN)       REFERENCES JournalDim (ISSN)      ON DELETE CASCADE,
+CONSTRAINT Article_Author_FK  FOREIGN KEY (AuthorId)   REFERENCES AuthorDim (AuthorId)   ON DELETE CASCADE,
+CONSTRAINT Article_History_FK FOREIGN KEY (HistoryID)  REFERENCES HistoryDim (HistoryID) ON DELETE CASCADE
+);
+```
+
+### Insert data into the fact table
+```{sql connection ="dbcon"}
+
+);
+```
+
+### View the record via SQL
+```{sql connection = "dbcon"}
+select * from JournalDim;
+```
+
+```{sql connection = "dbcon"}
+select * from AuthorDim;
+```
+
+```{sql connection = "dbcon"}
+select * from HistoryDim;
+```
+
+```{sql connection = "dbcon"}
+select * from ArticleFact;
+```
+
+#Close the connection
+```{r}
+dbDisconnect(dbcon)
 ```
