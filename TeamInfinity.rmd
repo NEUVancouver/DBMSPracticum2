@@ -19,7 +19,7 @@ dbcon <- dbConnect(RSQLite::SQLite(), paste0(fpath,dbfile))
 dbListTables(dbcon)
 ```
 
-# Clean up 
+# Clean up
 ```{sql connection = "dbcon"}
 drop table if exists Article;
 ```
@@ -131,13 +131,13 @@ History.df <- data.frame (HistoryID = integer(),
                           stringsAsFactors = F)
 
 Author.df <- data.frame(AuthorID = character(),
-                        LastName = character(), 
+                        LastName = character(),
                         ForeName = character(),
                         Initials = character(),
                         Affiliation = character(),
                         stringsAsFactors = F)
 
-ArticleAuthorMapping.df <- data.frame(PMID = integer(), 
+ArticleAuthorMapping.df <- data.frame(PMID = integer(),
                                       AuthorID = character(),
                                       stringsAsFactors =)
 
@@ -167,35 +167,35 @@ Article.df <- data.frame (PMID = integer(),
 # Defind Parser
 
 ```{r}
-parseHistory <- function(pmid, history) 
+parseHistory <- function(pmid, history)
 {
   rows.df <-data.frame(HistoryID = integer(),
-                       PMID = character(), 
+                       PMID = character(),
                        PubStatus = character(),
                        PubDate = character(),
                        stringsAsFactors = F)
 
   # Use History DF record count as Auto Increment
   historyIdx <- nrow(History.df) + 10000000
-  
+
   for (i in 1: xmlSize(history))
   {
     dataNode <- history[[i]]
     yy <- xpathSApply(dataNode, "Year", xmlValue)
     mm <- xpathSApply(dataNode, "Month", xmlValue)
     dd <- xpathSApply(dataNode, "Day", xmlValue)
-    
+
     # Derived Field
-    pubDate <- paste(yy, mm, dd, sep="-")
-    
+    pubDate <- as.character(as.Date(paste(yy, mm, dd, sep="-"), format = "%Y-%m-%d"))
+
     # Create the "ID"
     historyIdx <- historyIdx + 1
 
     rows.df[i,1] <- historyIdx
     rows.df[i,2] <- pmid
     rows.df[i,3] <- xmlAttrs(dataNode, 2)
-    rows.df[i,4] <- pubDate 
-    
+    rows.df[i,4] <- pubDate
+
   }
 
   return(rows.df)
@@ -203,18 +203,18 @@ parseHistory <- function(pmid, history)
 ```
 
 ```{r}
-parseAuthor <- function(authors) 
+parseAuthor <- function(authors)
 {
   rows.df <-data.frame(AuthorID = character(),
-                       LastName = character(), 
+                       LastName = character(),
                        ForeName = character(),
                        Initials = character(),
                        Affiliation = character(),
                        stringsAsFactors = F)
-  
+
   # Use actual row index since we skip some record if duplicated
   rowIdx = 1
-  
+
   for (i in 1: xmlSize(authors))
   {
     dataNode <- authors[[i]]
@@ -222,11 +222,11 @@ parseAuthor <- function(authors)
     foreName <- xpathSApply(dataNode, "ForeName", xmlValue)
     initials <- xpathSApply(dataNode, "Initials", xmlValue)
     affiliation <- xpathSApply(dataNode, "Affiliation", xmlValue)
-    
+
     authorID <- paste(lastName, initials, foreName, sep="-")
-    
+
     if (length(affiliation) == 0 ) affiliation <- ''
-    
+
     # If Author ID already exist in the record, skip insert
     if(!any(Author.df$AuthorID == authorID)) {
       rows.df[rowIdx,1] <- authorID
@@ -234,7 +234,7 @@ parseAuthor <- function(authors)
       rows.df[rowIdx,3] <- foreName
       rows.df[rowIdx,4] <- initials
       rows.df[rowIdx,5] <- affiliation
-      rowIdx <- rowIdx + 1 
+      rowIdx <- rowIdx + 1
     }
   }
 
@@ -243,7 +243,7 @@ parseAuthor <- function(authors)
 ```
 
 ```{r}
-parseArticleAuthorMapping <- function(pmid, authors) 
+parseArticleAuthorMapping <- function(pmid, authors)
 {
   rows.df <-data.frame( PMID = integer(),
                         AuthorID = character(),
@@ -257,9 +257,9 @@ parseArticleAuthorMapping <- function(pmid, authors)
     initials <- xpathSApply(dataNode, "Initials", xmlValue)
 
     authorID <- paste(lastName, initials, foreName, sep="-")
-    
-    rows.df[i,1] <- authorID
-    rows.df[i,2] <- pmid
+
+    rows.df[i,1] <- pmid
+    rows.df[i,2] <- authorID
   }
 
   return(rows.df)
@@ -267,13 +267,16 @@ parseArticleAuthorMapping <- function(pmid, authors)
 ```
 
 ```{r}
-parseJournal <- function(journals) 
+parseJournal <- function(journals)
 {
   rows.df <- data.frame (ISSN = character(),
                          IssnType = character(),
                          Title = character(),
                          ISOAbbreviation = character(),
                          stringsAsFactors = F)
+
+  # Use actual row index since we skip some record if duplicated
+  rowIdx = 1
 
   for (i in 1: xmlSize(journals))
   {
@@ -297,7 +300,7 @@ parseJournal <- function(journals)
 ```
 
 ```{r}
-parseJournalIssue <- function(journals) 
+parseJournalIssue <- function(journals)
 {
   rows.df <- data.frame (JournalIssueID = character(),
                          ISSN = character(),
@@ -333,7 +336,7 @@ parseJournalIssue <- function(journals)
 ```
 
 ```{r}
-parseArticle <- function(pmid, article) 
+parseArticle <- function(pmid, article)
 {
   rows.df <- data.frame (PMID = integer(),
                          JournalIssueID = integer(),
@@ -342,7 +345,7 @@ parseArticle <- function(pmid, article)
                          Language = character(),
                          ArticleDate = character(),
                          stringsAsFactors = F)
-  
+
   for (i in 1: xmlSize(article))
   {
       dataNode <- article[[i]]
@@ -355,11 +358,11 @@ parseArticle <- function(pmid, article)
       yy = xpathSApply(dataNode, "ArticleDate/Year", xmlValue)
       mm = xpathSApply(dataNode, "ArticleDate/Month", xmlValue)
       dd = xpathSApply(dataNode, "ArticleDate/Day", xmlValue)
-  
-      # Derived Field    
+
+      # Derived Field
       articleDate <- paste(yy, mm, dd, sep="-")
       if (length(articleDate) == 0) articleDate <- '1970-01-01'
-      
+
       # Lookup Journal Issue ID
       index <- which(JournalIssue.df$ISSN == issn & JournalIssue.df$Volume == volume  & JournalIssue.df$Issue == issue )
       journalIssueID = JournalIssue.df[index, "JournalIssueID"]
@@ -371,7 +374,7 @@ parseArticle <- function(pmid, article)
       rows.df[i,5] <- language
       rows.df[i,6] <- articleDate
     }
-  
+
     return(rows.df)
 }
 ```
@@ -392,7 +395,7 @@ for (i in 1 : size){
       Journal.df[nrow(Journal.df) + 1,] = row
     }
   }
-  
+
   # Process Journal Issue
   journalIssueRows <- parseJournalIssue(journals)
   if (nrow(journalIssueRows) > 0){
@@ -401,7 +404,7 @@ for (i in 1 : size){
       JournalIssue.df[nrow(JournalIssue.df) + 1,] = row
     }
   }
-  
+
   # Process History
   history = xpathApply(node[[2]], "History/PubMedPubDate")
   historyRows <- parseHistory(pmid, history)
@@ -411,7 +414,7 @@ for (i in 1 : size){
       History.df[nrow(History.df) + 1,] = row
     }
   }
-  
+
   # Process Author (Record will be skipped if it was added previously)
   authors = xpathApply(node[[1]], "Article/AuthorList/Author")
   authorRows <- parseAuthor(authors)
@@ -421,7 +424,7 @@ for (i in 1 : size){
       Author.df[nrow(Author.df) + 1,] = row
     }
   }
-  
+
   # Process Article Author Mapping
   articleAuthorMappingRows <- parseArticleAuthorMapping(pmid, authors)
   if (nrow(articleAuthorMappingRows) > 0){
@@ -430,7 +433,7 @@ for (i in 1 : size){
       ArticleAuthorMapping.df[nrow(ArticleAuthorMapping.df) + 1,] = row
     }
   }
-  
+
   # Process Article
   article = xpathApply(node[[1]], "Article")
   articleRows <- parseArticle(pmid, article)
@@ -511,46 +514,89 @@ drop table if exists HistoryDim;
 
 ### Create and load the dimension tables
 ```{sql connection ="dbcon"}
-CREATE TABLE JournalDim
-  AS SELECT ISSN, IssnType, Title, ISOAbbreviation FROM Journal;
+CREATE TABLE JournalDim (
+  ISSN            Text NOT NULL PRIMARY KEY,
+  ISSNType        Text NOT NULL,
+  Title           Text NOT NULL,
+  ISOAbbreviation Text NOT NULL
+);
 ```
 
 ```{sql connection ="dbcon"}
-CREATE TABLE AuthorDim
-  AS SELECT AuthorId, LastName, ForeName, Initials, Affiliation FROM Author;
+INSERT INTO JournalDim
+  SELECT ISSN, IssnType, Title, ISOAbbreviation FROM Journal;
 ```
 
 ```{sql connection ="dbcon"}
-CREATE TABLE HistoryDim
-  AS SELECT HistoryID, PubStatus, PubDate FROM History;
+CREATE TABLE AuthorDim (
+  AuthorId        Text NOT NULL PRIMARY KEY,
+  LastName        Text NOT NULL,
+  ForeName        Text NOT NULL,
+  Initials        Text NOT NULL,
+  Affiliation     Text NOT NULL
+);
+```
+
+```{sql connection ="dbcon"}
+INSERT INTO AuthorDim
+  SELECT AuthorId, LastName, ForeName, Initials, Affiliation FROM Author;
+```
+
+```{sql connection ="dbcon"}
+CREATE TABLE HistoryDim (
+  HistoryID Integer NOT NULL PRIMARY KEY,
+  PubStatus Text NOT NULL,
+  PubDate   Date NOT NULL
+);
+```
+
+```{sql connection ="dbcon"}
+INSERT INTO HistoryDim
+  SELECT HistoryID, PubStatus, PubDate FROM History;
 ```
 
 ### Create the fact table
 ```{sql connection ="dbcon"}
 CREATE TABLE ArticleFact (
-PMID           Text NOT NULL,
-ISSN           Text NOT NULL,
-AuthorId       Text NOT NULL,
-HistoryID      Integer NOT NULL,
-ArticleTitle   Text NOT NULL,
-Pagination     Text NOT NULL,
-Language       Text NOT NULL,
-ArticleDate    Date NOT NULL,
-CitedMedium    Text NOT NULL,
-JournalVolume  Text NOT NULL,
-JournalIssue   Text NOT NULL,
-JournalPubDate Date NOT NULL,
-PRIMARY KEY (PMID, ISSN, AuthorId, HistoryID),
-CONSTRAINT Article_Journal_FK FOREIGN KEY (ISSN)       REFERENCES JournalDim (ISSN)      ON DELETE CASCADE,
-CONSTRAINT Article_Author_FK  FOREIGN KEY (AuthorId)   REFERENCES AuthorDim (AuthorId)   ON DELETE CASCADE,
-CONSTRAINT Article_History_FK FOREIGN KEY (HistoryID)  REFERENCES HistoryDim (HistoryID) ON DELETE CASCADE
+  PMID           Text NOT NULL,
+  ISSN           Text NOT NULL,
+  AuthorId       Text NOT NULL,
+  HistoryID      Integer NOT NULL,
+  ArticleTitle   Text NOT NULL,
+  Pagination     Text NOT NULL,
+  Language       Text NOT NULL,
+  ArticleDate    Date NOT NULL,
+  CitedMedium    Text NOT NULL,
+  JournalVolume  Text NOT NULL,
+  JournalIssue   Text NOT NULL,
+  JournalPubDate Text NOT NULL,
+  PRIMARY KEY (PMID, ISSN, AuthorId, HistoryID),
+  CONSTRAINT Article_Journal_FK FOREIGN KEY (ISSN)       REFERENCES JournalDim (ISSN)      ON DELETE CASCADE,
+  CONSTRAINT Article_Author_FK  FOREIGN KEY (AuthorId)   REFERENCES AuthorDim (AuthorId)   ON DELETE CASCADE,
+  CONSTRAINT Article_History_FK FOREIGN KEY (HistoryID)  REFERENCES HistoryDim (HistoryID) ON DELETE CASCADE
 );
 ```
 
 ### Insert data into the fact table
 ```{sql connection ="dbcon"}
-
-);
+INSERT INTO ArticleFact
+SELECT ar.PMID,
+  j.ISSN,
+  aam.AuthorId,
+  h.HistoryID,
+  ar.ArticleTitle,
+  ar.Pagination,
+  ar.Language,
+  ar.ArticleDate,
+  ji.CitedMedium,
+  ji.Volume AS JournalVolume,
+  ji.Issue AS JournalIssue,
+  ji.PubDate AS JournalPubDate
+FROM Article ar
+JOIN JournalIssue ji ON ji.JournalIssueID = ar.JournalIssueID
+JOIN Journal j ON j.ISSN = ji.ISSN
+JOIN ArticleAuthorMapping aam ON aam.PMID = ar.PMID
+JOIN History h ON h.PMID = ar.PMID;
 ```
 
 ### View the record via SQL
@@ -569,6 +615,69 @@ select * from HistoryDim;
 ```{sql connection = "dbcon"}
 select * from ArticleFact;
 ```
+
+## Step 2
+### Clean up
+```{sql connection = "dbcon"}
+drop table if exists ArticleSummaryFact;
+```
+
+### Create the fact table
+```{sql connection ="dbcon"}
+CREATE TABLE ArticleSummaryFact (
+  ISSN           Text NOT NULL,
+  AuthorId       Text NOT NULL,
+  Quarter        Integer NOT NULL,
+  YEAR           Integer NOT NULL,
+  PubStatus      Text NOT NULL,
+  ArticleNumber  Integer NOT NULL,
+  PRIMARY KEY (ISSN, AuthorId, Quarter, Year, PubStatus),
+  CONSTRAINT Article_Journal_FK FOREIGN KEY (ISSN)       REFERENCES JournalDim (ISSN)      ON DELETE CASCADE,
+  CONSTRAINT Article_Author_FK  FOREIGN KEY (AuthorId)   REFERENCES AuthorDim (AuthorId)   ON DELETE CASCADE
+);
+```
+
+### Insert data into the fact table
+count article number by thedate
+```{sql connection ="dbcon"}
+INSERT INTO ArticleSummaryFact
+SELECT
+  jd.ISSN,
+  ad.AuthorId,
+  (2 + strftime('%m', hd.PubDate)) / 3 AS Quarter,
+  strftime('%Y', hd.PubDate) AS Year,
+  hd.PubStatus,
+  COUNT(PMID) AS ArticleNumber
+FROM ArticleFact af
+JOIN JournalDim jd ON jd.ISSN = af.ISSN
+JOIN AuthorDim ad ON ad.AuthorId = af.AuthorId
+JOIN HistoryDim hd ON hd.HistoryID = af.HistoryID
+GROUP BY hd.PubStatus, Year, Quarter, jd.ISSN, ad.AuthorId;
+```
+
+### Query data from summary fact table
+count number of articles per time year by author when the pubstatus is 'pubmed'
+```{sql connection ="dbcon"}
+SELECT DISTINCT
+  AuthorId,
+  Year,
+  SUM(ArticleNumber) AS ArticleNumber
+FROM ArticleSummaryFact
+WHERE PubStatus = 'pubmed'
+GROUP BY AuthorId, Year;
+```
+
+count number of articles per year by journal when the pubstatus is 'pubmed'
+```{sql connection ="dbcon"}
+SELECT
+  ISSN,
+  Year,
+  SUM(ArticleNumber) AS ArticleNumber
+FROM ArticleSummaryFact
+WHERE PubStatus = 'pubmed'
+GROUP BY Year, ISSN;
+```
+
 
 #Close the connection
 ```{r}
