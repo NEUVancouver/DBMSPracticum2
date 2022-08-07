@@ -71,15 +71,15 @@ CREATE TABLE `JournalIssue` (
 
 ```{sql connection ="dbcon"}
 CREATE TABLE `Article` (
-  `PMID`         Text NOT NULL PRIMARY KEY,
-  `ISSN`         Text NOT NULL,
-  `ArticleTitle` Text NOT NULL,
-  `Pagination`   Text NOT NULL,
-  `AbstractID`   Integer NOT NULL,
-  `Language`     Integer NOT NULL,
-  `ArticleDate`  Date NOT NULL,
-  CONSTRAINT Article_FK0 FOREIGN KEY (AbstractID)         REFERENCES Abstract (AbstractID)      ON DELETE CASCADE,
-  CONSTRAINT Article_FK1 FOREIGN KEY (ISSN)               REFERENCES Journal (ISSN)             ON DELETE CASCADE
+  `PMID`           Text NOT NULL PRIMARY KEY,
+  `JournalIssueID` Integer NOT NULL,
+  `ArticleTitle`   Text NOT NULL,
+  `Pagination`     Text NOT NULL,
+  `AbstractID`     Integer NOT NULL,
+  `Language`       Integer NOT NULL,
+  `ArticleDate`    Date NOT NULL,
+  CONSTRAINT Article_FK0 FOREIGN KEY (AbstractID)         REFERENCES Abstract (AbstractID)                     ON DELETE CASCADE,
+  CONSTRAINT Article_FK1 FOREIGN KEY (JournalIssueID)     REFERENCES JournalIssue (JournalIssueID)             ON DELETE CASCADE
 );
 ```
 
@@ -149,7 +149,7 @@ Journal.df <- data.frame (ISSN = character(),
                           ISOAbbreviation = character(),
                           stringsAsFactors = F)
 
-JournalIssue.df <- data.frame ( JournalIssueID = character(),
+JournalIssue.df <- data.frame ( JournalIssueID = integer(),
                                 ISSN = character(),
                                 CitedMedium = character(),
                                 Volume = integer(),
@@ -158,7 +158,7 @@ JournalIssue.df <- data.frame ( JournalIssueID = character(),
                                 stringsAsFactors = F)
 
 Article.df <- data.frame (PMID = integer(),
-                          ISSN = character(),
+                          JournalIssueID = integer(),
                           ArticleTitle = character(),
                           Pagination = character(),
                           Language = character(),
@@ -277,6 +277,9 @@ parseJournal <- function(journals)
                          ISOAbbreviation = character(),
                          stringsAsFactors = F)
 
+  # Use actual row index since we skip some record if duplicated
+  rowIdx = 1
+  
   for (i in 1: xmlSize(journals))
   {
     dataNode <- journals[[i]]
@@ -285,10 +288,13 @@ parseJournal <- function(journals)
     title <- xpathSApply(dataNode, "Title", xmlValue)
     isoAbbreviation <- xpathSApply(dataNode, "ISOAbbreviation", xmlValue)
 
-    rows.df[i,1] <- issn
-    rows.df[i,2] <- issueType
-    rows.df[i,3] <- title
-    rows.df[i,4] <- isoAbbreviation
+    if(!any(Journal.df$ISSN == issn)) {
+      rows.df[rowIdx,1] <- issn
+      rows.df[rowIdx,2] <- issueType
+      rows.df[rowIdx,3] <- title
+      rows.df[rowIdx,4] <- isoAbbreviation
+      rowIdx <- rowIdx + 1 
+    }
   }
 
   return(rows.df)
@@ -335,7 +341,7 @@ parseJournalIssue <- function(journals)
 parseArticle <- function(pmid, article) 
 {
   rows.df <- data.frame (PMID = integer(),
-                         ISSN = character(),
+                         JournalIssueID = integer(),
                          ArticleTitle = character(),
                          Pagination = character(),
                          Language = character(),
@@ -343,12 +349,14 @@ parseArticle <- function(pmid, article)
                          stringsAsFactors = F)
   
   for (i in 1: xmlSize(article))
-    {
+  {
       dataNode <- article[[i]]
       articleTitle = xpathSApply(dataNode, "ArticleTitle", xmlValue)
       pagination = xpathSApply(dataNode, "Pagination/MedlinePgn", xmlValue)
       language = xpathSApply(dataNode, "Language", xmlValue)
       issn = xpathSApply(dataNode, "Journal/ISSN", xmlValue)
+      volume = xpathSApply(dataNode, "Journal/JournalIssue/Volume", xmlValue)
+      issue = xpathSApply(dataNode, "Journal/JournalIssue/Issue", xmlValue)
       yy = xpathSApply(dataNode, "ArticleDate/Year", xmlValue)
       mm = xpathSApply(dataNode, "ArticleDate/Month", xmlValue)
       dd = xpathSApply(dataNode, "ArticleDate/Day", xmlValue)
@@ -357,8 +365,12 @@ parseArticle <- function(pmid, article)
       articleDate <- paste(yy, mm, dd, sep="-")
       if (length(articleDate) == 0) articleDate <- '1970-01-01'
       
+      # Lookup Journal Issue ID
+      index <- which(JournalIssue.df$ISSN == issn & JournalIssue.df$Volume == volume  & JournalIssue.df$Issue == issue )
+      journalIssueID = JournalIssue.df[index, "JournalIssueID"]
+
       rows.df[i,1] <- pmid
-      rows.df[i,2] <- issn
+      rows.df[i,2] <- journalIssueID
       rows.df[i,3] <- articleTitle
       rows.df[i,4] <- pagination
       rows.df[i,5] <- language
@@ -379,24 +391,30 @@ for (i in 1 : size){
   # Process Journal
   journals = xpathApply(node[[1]], "Article/Journal")
   journalRows <- parseJournal(journals)
-  for(j in 1 : nrow(journalRows)) {
-    row <- journalRows[j,]
-    Journal.df[nrow(Journal.df) + 1,] = row
+  if (nrow(journalRows) > 0){
+    for(j in 1 : nrow(journalRows)) {
+      row <- journalRows[j,]
+      Journal.df[nrow(Journal.df) + 1,] = row
+    }
   }
   
   # Process Journal Issue
   journalIssueRows <- parseJournalIssue(journals)
-  for(j in 1 : nrow(journalIssueRows)) {
-    row <- journalIssueRows[j,]
-    JournalIssue.df[nrow(JournalIssue.df) + 1,] = row
+  if (nrow(journalIssueRows) > 0){
+    for(j in 1 : nrow(journalIssueRows)) {
+      row <- journalIssueRows[j,]
+      JournalIssue.df[nrow(JournalIssue.df) + 1,] = row
+    }
   }
   
   # Process History
   history = xpathApply(node[[2]], "History/PubMedPubDate")
   historyRows <- parseHistory(pmid, history)
-  for(j in 1 : nrow(historyRows)) {
-    row <- historyRows[j,]
-    History.df[nrow(History.df) + 1,] = row
+  if (nrow(historyRows) > 0){
+    for(j in 1 : nrow(historyRows)) {
+      row <- historyRows[j,]
+      History.df[nrow(History.df) + 1,] = row
+    }
   }
   
   # Process Author (Record will be skipped if it was added previously)
@@ -411,17 +429,21 @@ for (i in 1 : size){
   
   # Process Article Author Mapping
   articleAuthorMappingRows <- parseArticleAuthorMapping(pmid, authors)
-  for(j in 1 : nrow(articleAuthorMappingRows)) {
-    row <- articleAuthorMappingRows[j,]
-    ArticleAuthorMapping.df[nrow(ArticleAuthorMapping.df) + 1,] = row
+  if (nrow(articleAuthorMappingRows) > 0){
+    for(j in 1 : nrow(articleAuthorMappingRows)) {
+      row <- articleAuthorMappingRows[j,]
+      ArticleAuthorMapping.df[nrow(ArticleAuthorMapping.df) + 1,] = row
+    }
   }
   
   # Process Article
   article = xpathApply(node[[1]], "Article")
   articleRows <- parseArticle(pmid, article)
-  for(j in 1 : nrow(articleRows)) {
-    row <- articleRows[j,]
-    Article.df[nrow(Article.df) + 1,] = row
+  if (nrow(articleRows) > 0){
+    for(j in 1 : nrow(articleRows)) {
+      row <- articleRows[j,]
+      Article.df[nrow(Article.df) + 1,] = row
+    }
   }
 }
 
