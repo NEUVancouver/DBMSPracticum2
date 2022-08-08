@@ -619,63 +619,91 @@ select * from ArticleFact;
 ## Step 2
 ### Clean up
 ```{sql connection = "dbcon"}
-drop table if exists ArticleSummaryFact;
+DROP TABLE IF EXISTS ArticleJournalSummaryFact;
 ```
 
-### Create the fact table
+### Create the fact table for counting article numbers for each journal per period
 ```{sql connection ="dbcon"}
-CREATE TABLE ArticleSummaryFact (
+CREATE TABLE ArticleJournalSummaryFact (
   ISSN           Text NOT NULL,
-  AuthorId       Text NOT NULL,
   Quarter        Integer NOT NULL,
   YEAR           Integer NOT NULL,
-  PubStatus      Text NOT NULL,
   ArticleNumber  Integer NOT NULL,
-  PRIMARY KEY (ISSN, AuthorId, Quarter, Year, PubStatus),
-  CONSTRAINT Article_Journal_FK FOREIGN KEY (ISSN)       REFERENCES JournalDim (ISSN)      ON DELETE CASCADE,
-  CONSTRAINT Article_Author_FK  FOREIGN KEY (AuthorId)   REFERENCES AuthorDim (AuthorId)   ON DELETE CASCADE
+  PRIMARY KEY (ISSN, Quarter, Year)
 );
 ```
 
 ### Insert data into the fact table
-count article number by thedate
+Choosing PubStatus "pubmed" as publish date
 ```{sql connection ="dbcon"}
-INSERT INTO ArticleSummaryFact
-SELECT
-  jd.ISSN,
-  ad.AuthorId,
+INSERT INTO ArticleJournalSummaryFact
+SELECT DISTINCT
+  ISSN,
   (2 + strftime('%m', hd.PubDate)) / 3 AS Quarter,
   strftime('%Y', hd.PubDate) AS Year,
-  hd.PubStatus,
-  COUNT(PMID) AS ArticleNumber
+  COUNT (DISTINCT PMID) AS ArticleNumber
 FROM ArticleFact af
-JOIN JournalDim jd ON jd.ISSN = af.ISSN
-JOIN AuthorDim ad ON ad.AuthorId = af.AuthorId
-JOIN HistoryDim hd ON hd.HistoryID = af.HistoryID
-GROUP BY hd.PubStatus, Year, Quarter, jd.ISSN, ad.AuthorId;
+JOIN HistoryDim hd ON hd.HistoryID = af.HistoryID AND hd.PubStatus = 'pubmed'
+GROUP BY ISSN, Year, Quarter
+ORDER BY ISSN, Year, Quarter;
 ```
 
 ### Query data from summary fact table
-count number of articles per time year by author when the pubstatus is 'pubmed'
-```{sql connection ="dbcon"}
-SELECT DISTINCT
-  AuthorId,
-  Year,
-  SUM(ArticleNumber) AS ArticleNumber
-FROM ArticleSummaryFact
-WHERE PubStatus = 'pubmed'
-GROUP BY AuthorId, Year;
-```
-
-count number of articles per year by journal when the pubstatus is 'pubmed'
+count number of articles per year by journal
 ```{sql connection ="dbcon"}
 SELECT
-  ISSN,
-  Year,
-  SUM(ArticleNumber) AS ArticleNumber
-FROM ArticleSummaryFact
-WHERE PubStatus = 'pubmed'
-GROUP BY Year, ISSN;
+  ajsf.ISSN,
+  jd.Title,
+  ajsf.Year,
+  SUM(ajsf.ArticleNumber) AS ArticleNumber
+FROM ArticleJournalSummaryFact ajsf
+JOIN JournalDim jd ON jd.ISSN = ajsf.ISSN
+GROUP BY ajsf.ISSN, ajsf.Year;
+```
+
+### Clean up
+```{sql connection = "dbcon"}
+DROP TABLE IF EXISTS ArticleAuthorSummaryFact;
+```
+
+### Create the fact table for counting article numbers for each author per period
+```{sql connection ="dbcon"}
+CREATE TABLE ArticleAuthorSummaryFact (
+  AuthorId       Text NOT NULL,
+  Quarter        Integer NOT NULL,
+  YEAR           Integer NOT NULL,
+  ArticleNumber  Integer NOT NULL,
+  PRIMARY KEY (AuthorId, Quarter, Year)
+);
+```
+
+### Insert data into the fact table
+Choosing PubStatus "pubmed" as publish date
+```{sql connection ="dbcon"}
+INSERT INTO ArticleAuthorSummaryFact
+SELECT DISTINCT
+  af.AuthorId,
+  (2 + strftime('%m', hd.PubDate)) / 3 AS Quarter,
+  strftime('%Y', hd.PubDate) AS Year,
+  COUNT (DISTINCT PMID) AS ArticleNumber
+FROM ArticleFact af
+JOIN HistoryDim hd ON hd.HistoryID = af.HistoryID AND hd.PubStatus = 'pubmed'
+GROUP BY af.AuthorId, Year, Quarter
+ORDER BY af.AuthorId, Year, Quarter;
+```
+
+### Query data from summary fact table
+count number of articles per year by author
+```{sql connection ="dbcon"}
+SELECT
+  aasf.AuthorId,
+  ad.LastName,
+  ad.ForeName,
+  aasf.Year,
+  SUM(aasf.ArticleNumber) AS ArticleNumber
+FROM ArticleAuthorSummaryFact aasf
+JOIN AuthorDim ad ON ad.AuthorId = aasf.AuthorId
+GROUP BY aasf.AuthorId, aasf.Year;
 ```
 
 
