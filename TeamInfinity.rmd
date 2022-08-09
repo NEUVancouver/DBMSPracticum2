@@ -15,7 +15,7 @@ Team : Kong Koon Kit, Zhiwei Bao, Luo Cheng Zhu
 library(XML)
 library(RSQLite)
 
-fpath <- "./"
+fpath <- "C:/Users/KONG/Documents/claireZ/CS5200 Database Management/Practicum II  Mine a Database/DBMSPracticum2/"
 dbfile <- "Practicum2.sqlite"
 xmlfile <- "pubmed_sample.xml"
 
@@ -717,8 +717,79 @@ JOIN AuthorDim ad ON ad.AuthorId = aasf.AuthorId
 GROUP BY aasf.AuthorId, aasf.Year;
 ```
 
+## Step 3 Explore and mine data
 
-###Close the connection
+### 1. How many articles are published each quarter per year from 2011-2013?
+#### SQL Query
+```{sql connection="dbcon"}
+SELECT Year AS Year, Quarter, SUM(ArticleNumber) AS num_of_articles
+  FROM ArticleJournalSummaryFact
+  GROUP BY Year, Quarter;
+```
+#### Assign query results to a dataframe
+```{r}
+df_articles_quarter_year <- dbGetQuery(dbcon,
+  "SELECT Year AS Year, Quarter, SUM(ArticleNumber) AS num_of_articles
+    FROM ArticleJournalSummaryFact
+    GROUP BY Year, Quarter;")
+df_articles_quarter_year
+```
+#### Visualize the data
+```{r}
+df2 <- data.frame(supp=rep(c("2011", "2012","2013"), each=4),
+                Quarter=rep(c("1st", "2nd", "3rd", "4th"), 3),
+                Num_of_Articles=c(1, 0, 2, 4, 4, 2, 1, 4, 0, 0, 1, 0))
+head(df2)
+library(ggplot2)
+# Line plot with multiple groups
+p <- ggplot(data=df2, aes(x=Quarter, y=Num_of_Articles, group=supp)) +
+      geom_line(aes(linetype=supp), size=1.2)+
+      geom_point(aes(shape=supp), size=2.4, color='red')
+p <- p + scale_color_brewer(palette="Paired")+
+  theme_minimal()
+p + theme(legend.position="bottom")
+```
+
+### 2. Average days between submission and publication.
+#### SQL Query
+```{sql connection="dbcon"}
+SELECT DISTINCT
+  af.PMID,
+  hd.PubStatus,
+  hd.PubDate
+FROM ArticleFact af
+JOIN HistoryDim hd ON hd.HistoryID = af.HistoryID AND hd.PubStatus IN ('received', 'pubmed')
+WHERE af.PMID IN (
+  SELECT DISTINCT
+    af.PMID
+  FROM ArticleFact af
+  JOIN HistoryDim hd ON hd.HistoryID = af.HistoryID AND hd.PubStatus IN ('received', 'pubmed')
+  GROUP BY af.PMID
+  HAVING COUNT(DISTINCT af.HistoryID) = 2
+);
+```
+
+```{sql connection="dbcon"}
+SELECT
+  AVG(
+    CASE
+      WHEN hd.PubStatus = 'received' THEN -JULIANDAY(hd.PubDate)
+      ELSE JULIANDAY(hd.PubDate)
+    END
+  ) * 2 AS AverageDays
+FROM ArticleFact af
+JOIN HistoryDim hd ON hd.HistoryID = af.HistoryID AND hd.PubStatus IN ('received', 'pubmed')
+WHERE af.PMID IN (
+  SELECT DISTINCT
+    af.PMID
+  FROM ArticleFact af
+  JOIN HistoryDim hd ON hd.HistoryID = af.HistoryID AND hd.PubStatus IN ('received', 'pubmed')
+  GROUP BY af.PMID
+  HAVING COUNT(DISTINCT af.HistoryID) = 2
+);
+```
+
+### Close the connection
 ```{r}
 dbDisconnect(dbcon)
 ```
