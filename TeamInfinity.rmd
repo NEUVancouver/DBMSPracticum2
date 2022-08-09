@@ -4,6 +4,13 @@ output: html_notebook
 Team : Kong Koon Kit, Zhiwei Bao, Luo Cheng Zhu
 ---
 
+# Part 1
+## Step 1
+### ERD of normalized relational schema
+![Normalized relational schema](Part1_NormalizedSchema.jpeg)
+
+## Step 2
+### Setup
 ```{r}
 library(XML)
 library(RSQLite)
@@ -19,7 +26,7 @@ dbcon <- dbConnect(RSQLite::SQLite(), paste0(fpath,dbfile))
 dbListTables(dbcon)
 ```
 
-# Clean up
+### Clean up
 ```{sql connection = "dbcon"}
 drop table if exists Article;
 ```
@@ -44,8 +51,7 @@ drop table if exists Journal;
 drop table if exists JournalIssue;
 ```
 
-
-# Define Table Layout
+### Define Table Layout
 ```{sql connection ="dbcon"}
 CREATE TABLE `Journal` (
   `ISSN`            Text NOT NULL PRIMARY KEY,
@@ -111,9 +117,8 @@ CREATE TABLE `ArticleAuthorMapping` (
 );
 ```
 
-
-# Process XML File
-
+## Step 3
+### Process XML File
 ```{r }
 fpn = paste0(fpath, xmlfile)
 xmlDOM <- xmlParse(file = fpn)
@@ -121,8 +126,7 @@ xmlRoot <- xmlRoot(xmlDOM)
 #head(xmlRoot)
 ```
 
-# Define Data Frame
-
+### Define Data Frame
 ```{r}
 History.df <- data.frame (HistoryID = integer(),
                           PMID = integer(),
@@ -164,8 +168,7 @@ Article.df <- data.frame (PMID = integer(),
                           stringsAsFactors = F)
 ```
 
-# Defind Parser
-
+### Defind Parser
 ```{r}
 parseHistory <- function(pmid, history)
 {
@@ -379,7 +382,7 @@ parseArticle <- function(pmid, article)
 }
 ```
 
-# Main Parsing
+### Main Parsing
 ```{r}
 size <- xmlSize(xmlRoot)
 for (i in 1 : size){
@@ -456,8 +459,7 @@ Journal.df
 JournalIssue.df
 ```
 
-# Write Result into database
-
+### Write Result into database
 ```{r}
 dbWriteTable(dbcon, "Article", Article.df, overwrite = T)
 dbWriteTable(dbcon, "ArticleAuthorMapping", ArticleAuthorMapping.df, overwrite = T)
@@ -467,7 +469,7 @@ dbWriteTable(dbcon, "Journal", Journal.df, overwrite = T)
 dbWriteTable(dbcon, "JournalIssue", JournalIssue.df, overwrite = T)
 ```
 
-# Finally View the record via SQL
+### Finally View the record via SQL
 ```{sql connection = "dbcon"}
 select rowid, a.* from Article a
 ```
@@ -494,6 +496,9 @@ select rowid, a.* from JournalIssue a
 
 # Part 2
 ## Step 1
+### ERD of star schema
+![Star schema](Part2_StarSchema.jpeg)
+
 ### Clean up
 ```{sql connection = "dbcon"}
 drop table if exists ArticleFact;
@@ -510,7 +515,6 @@ drop table if exists AuthorDim;
 ```{sql connection = "dbcon"}
 drop table if exists HistoryDim;
 ```
-
 
 ### Create and load the dimension tables
 ```{sql connection ="dbcon"}
@@ -617,12 +621,17 @@ select * from ArticleFact;
 ```
 
 ## Step 2
+### ERD of star schema (Add summary fact table)
+![Summary fact of star schema](Part2_SummaryFact.jpeg)
+
+## Create the summary of journals' article number
 ### Clean up
 ```{sql connection = "dbcon"}
 DROP TABLE IF EXISTS ArticleJournalSummaryFact;
 ```
 
-### Create the fact table for counting article numbers for each journal per period
+### Create the fact table
+Counting article numbers for each journal per period
 ```{sql connection ="dbcon"}
 CREATE TABLE ArticleJournalSummaryFact (
   ISSN           Text NOT NULL,
@@ -661,12 +670,14 @@ JOIN JournalDim jd ON jd.ISSN = ajsf.ISSN
 GROUP BY ajsf.ISSN, ajsf.Year;
 ```
 
+## Create the summary of authors' article number
 ### Clean up
 ```{sql connection = "dbcon"}
 DROP TABLE IF EXISTS ArticleAuthorSummaryFact;
 ```
 
-### Create the fact table for counting article numbers for each author per period
+### Create the fact table 
+Counting article numbers for each author per period
 ```{sql connection ="dbcon"}
 CREATE TABLE ArticleAuthorSummaryFact (
   AuthorId       Text NOT NULL,
@@ -707,7 +718,7 @@ GROUP BY aasf.AuthorId, aasf.Year;
 ```
 
 
-#Close the connection
+###Close the connection
 ```{r}
 dbDisconnect(dbcon)
 ```
